@@ -49,9 +49,11 @@ def view_poses(poses: torch.Tensor) -> None:
     plt.show()
 
 
-def save_score(psnr_score):
+def save_psnr_plot(psnr_score:list) -> None:
+    # psnr_score: (N_vals, 2)
+    psnr_score = np.array(psnr_score)
     plt.figure()
-    plt.plot(psnr_score)
+    plt.plot(psnr_score[:, 0], psnr_score[:, 1])
     plt.xlabel("Epoch")
     plt.ylabel("PSNR (dB)")
     plt.title("PSNR Score")
@@ -59,25 +61,24 @@ def save_score(psnr_score):
     plt.close()
 
 
-def save_checkpoint(epoch, scores, model, optimizer, ckpt_path:str) -> None:
+def save_checkpoint(epoch, scores, models, optimizer, ckpt_path:str) -> None:
     torch.save({
         'epoch':epoch,
         'scores': scores,
-        'coarse_model_state_dict': model["coarse"].state_dict(),
-        'fine_model_state_dict': model["fine"].state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
+        'model_state_dicts': {k: v.state_dict() for k, v in models.items()}
     }, ckpt_path)
 
 
-def load_checkpoint(model, optimizer, ckpt_path:str):
+def load_checkpoint(models, optimizer, ckpt_path:str):
     if not os.path.exists(ckpt_path):
         return 0, []
     
     checkpoint=torch.load(ckpt_path)
     resume_epoch = checkpoint['epoch']
     psnr_scores = checkpoint['scores']
-    model["coarse"].load_state_dict(checkpoint['coarse_model_state_dict'])
-    model["fine"].load_state_dict(checkpoint['fine_model_state_dict'])
+    for k, v in models.items():
+        v.load_state_dict(checkpoint['model_state_dicts'][k])
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     print(f'Loaded checkpoint: {resume_epoch}')
