@@ -3,7 +3,6 @@ __pycache__
 checkpoints
 data
 val_output
-test_output
 
 # file types
 *.pyc

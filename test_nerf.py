@@ -1,4 +1,5 @@
 import os
+import shutil
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -49,5 +50,5 @@ if __name__ == "__main__":
             plt.imsave(f"depth_output/{i:04}.png", depth)
     utils.create_gif("rgb_output/", "rgb_output.gif")
     utils.create_gif("depth_output/", "depth_output.gif")
-    os.rmdir("rgb_output")
-    os.rmdir("depth_output")
+    shutil.rmtree('rgb_output')
+    shutil.rmtree('depth_output')

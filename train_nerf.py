@@ -64,6 +64,7 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, scheduler, cr
 
 def main():
     os.makedirs("val_output", exist_ok=True)
+    os.makedirs("checkpoints", exist_ok=True)
     utils.set_seed(60)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     conf = utils.load_yaml("conf.yaml")

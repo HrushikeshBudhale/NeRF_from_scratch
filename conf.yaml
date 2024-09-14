@@ -3,7 +3,7 @@ dataset_path: "data/lego_200x200.npz"
 ckpt_path: "checkpoints/lego_nerf_checkpoint.pt"
 
 # nerf parameters
-rays_per_batch: 1000
+rays_per_batch: 2000
 near: 2.0
 far: 6.0
 samples_per_ray: 64
@@ -13,5 +13,5 @@ perturb_samples: True
 lr: 0.001
 lr_decay_interval: 2000
 epochs: 6000
-val_interval: 50
-save_interval: 50
+val_interval: 500
+save_interval: 500
