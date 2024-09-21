@@ -34,7 +34,7 @@ def split_batch(tensors: list[torch.Tensor], batch_size: int) -> list[torch.Tens
 
 def create_gif(image_folder:str, gif_name:str, duration:float=5.0):
     frames = [imageio.imread(image_folder + image_name) for image_name in os.listdir(image_folder)]
-    imageio.mimsave(gif_name, frames, 'GIF', duration=duration)
+    imageio.mimsave(gif_name, frames, 'GIF', duration=duration, loop=2)
 
 
 def view_poses(poses: torch.Tensor) -> None:

@@ -33,7 +33,9 @@ class Renderer:
 
     def volume_render_depth(self, sigmas: torch.Tensor, z_vals: torch.Tensor) -> torch.Tensor:
         # sigmas: (N_rays, N_samples, 1)
-        depths = torch.linspace(self.near, self.far, sigmas.shape[1], device=sigmas.device)
-        weights = self.calc_weights(sigmas)                                                             # (N_rays, N_samples, 1)
-        rendered_depths = torch.sum(weights * depths.unsqueeze(0).unsqueeze(-1), dim=1)
+        # z_vals: (N_rays, N_samples)
+        weights = self.calc_weights(sigmas, z_vals)                                                       # (N_rays, N_samples, 1)
+        z_vals = (z_vals - self.near) / (self.far - self.near)
+        z_vals = z_vals.unsqueeze(-1).repeat(1, 1, 3)                                                     # (N_rays, N_samples, 3)
+        rendered_depths = torch.sum(weights * z_vals, dim=1)                                              # (N_rays, 3)
         return rendered_depths # (N_rays, 3)

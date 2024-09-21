@@ -45,7 +45,7 @@ if __name__ == "__main__":
             comp_depth = torch.cat(comp_depths, dim=0)
 
             image = comp_rgb.reshape(test_rays.H, test_rays.W, 3).cpu().numpy()
-            depth = comp_depth.reshape(test_rays.H, test_rays.W).cpu().numpy()
+            depth = comp_depth.reshape(test_rays.H, test_rays.W, 3).cpu().numpy()
             plt.imsave(f"rgb_output/{i:04}.png", image)
             plt.imsave(f"depth_output/{i:04}.png", depth)
     utils.create_gif("rgb_output/", "rgb_output.gif")
