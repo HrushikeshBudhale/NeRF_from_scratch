@@ -26,12 +26,13 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, scheduler, cr
 
         optimizer.zero_grad()
         rgb, sigmas = model['nerf'](points, rays_dn)                                    # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
-        comp_rgb = renderer.volume_render(rgb, sigmas)                                  # (N_rays, 3)
+        comp_rgb = renderer.volume_render(rgb, sigmas, z_vals)                          # (N_rays, 3)
         loss = criterion(comp_rgb, rays_rgb)
         loss.backward()
         optimizer.step()
+        # scheduler.step()
 
-        pbar.set_description(f"Loss: { loss.item() }")
+        pbar.set_description(f"Loss: {loss.item():.4f}")
         pbar.update(1)
         if (epoch + 1) % conf["val_interval"] == 0 or epoch == conf["epochs"] - 1:
             model['nerf'].eval()
@@ -45,11 +46,11 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, scheduler, cr
                     rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)
                 
                     rgb, sigmas = model['nerf'](points, rays_dn)
-                    comp_rgbs.append(renderer.volume_render(rgb, sigmas))
+                    comp_rgbs.append(renderer.volume_render(rgb, sigmas, z_vals))
                 comp_rgb = torch.cat(comp_rgbs, dim=0)
                 
                 curr_psnr = utils.psnr(comp_rgb, rays_rgb)
-                print(f"Val psnr: { curr_psnr } dB")
+                print(f"Val psnr: {curr_psnr:.4f} dB")
                 psnr_scores.append([epoch, curr_psnr])
                 # save image
                 image = comp_rgb.reshape(val_rays.H, val_rays.W, 3).cpu().numpy()

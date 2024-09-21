@@ -39,8 +39,8 @@ if __name__ == "__main__":
                 points, z_vals = ray_sampler.sample_along_rays(b_rays_o, b_rays_d)
                 rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)
                 rgb, sigmas = model["nerf"](points, rays_dn)
-                comp_depths.append(renderer.volume_render_depth(sigmas))
-                comp_rgbs.append(renderer.volume_render(rgb, sigmas))
+                comp_depths.append(renderer.volume_render_depth(sigmas, z_vals))
+                comp_rgbs.append(renderer.volume_render(rgb, sigmas, z_vals))
             comp_rgb = torch.cat(comp_rgbs, dim=0)
             comp_depth = torch.cat(comp_depths, dim=0)
 
