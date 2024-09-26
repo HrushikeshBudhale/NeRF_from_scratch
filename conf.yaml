@@ -1,17 +1,17 @@
-dataset_type: "tiny_nerf" # [tiny_nerf, custom, blender]
-dataset_path: "data/lego_200x200.npz"
-ckpt_path: "checkpoints/lego_nerf_checkpoint.pt"
+dataset_type: "blender" # [tiny_nerf, custom, blender]
+dataset_path: "data/lego"
+ckpt_path: "checkpoints/lego_blender_ngp_checkpoint.pt"
 
 # nerf parameters
-rays_per_batch: 2000
+rays_per_batch: 2048
 near: 2.0
 far: 6.0
-samples_per_ray: 64
+samples_per_ray: 196
 perturb_samples: True
+scene_scale: 0.3333
 
 # training parameters
-lr: 0.001
-lr_decay_interval: 2000
-epochs: 6000
-val_interval: 500
-save_interval: 500
+lr: 0.01
+epochs: 10000
+val_interval: 250
+save_interval: 250

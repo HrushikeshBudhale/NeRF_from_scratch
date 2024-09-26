@@ -7,7 +7,7 @@ from tqdm import tqdm
 from dataloader import RaysData, get_dataloader
 from ray_sampling import RaySampler
 from renderer import Renderer
-from model import Nerf
+from model import NGP
 import utils
 from gen_extrinsics import gen_circular_poses, gen_surrounding_poses
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     ray_sampler = RaySampler(conf)
     renderer = Renderer(conf)
 
-    model = {'nerf':Nerf().to(device)}
+    model = {'nerf':NGP(scene_scale=conf["scene_scale"], device=device)}
     utils.load_checkpoint(model, None, conf["ckpt_path"])
     model['nerf'].eval()
     with torch.no_grad():

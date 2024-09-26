@@ -106,7 +106,7 @@ class CustomDataloader(BaseDataloader):
 
 class BlenderDataloader(BaseDataloader):
     # tested on 800x800 res image 
-    def __init__(self, base_dir: str, scale:float=0.25, testskip: int=1):
+    def __init__(self, base_dir: str, scale:float=1, testskip: int=1):
         super().__init__()
 
         for s in ['train', 'val', 'test']:
@@ -138,7 +138,7 @@ class RaysData:
         self.N_images, self.H, self.W = images.shape[:3]
 
         # create uv grid
-        vs, us = torch.meshgrid(torch.arange(self.H), torch.arange(self.W))
+        vs, us = torch.meshgrid(torch.arange(self.H), torch.arange(self.W), indexing='ij')
         uv = torch.stack([us, vs], dim=-1).to(images.device).float()
         uv = uv + 0.5 # add 0.5 offset to each pixel
         self.uv_flattened = uv.reshape(-1, 2)                               # (H*W, 2)
