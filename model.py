@@ -3,18 +3,17 @@ import numpy as np
 import torch.nn as nn
 
 class NGP(nn.Module):
-    def __init__(self, scene_scale: float=1.0, T: int=2**19, 
-                 Nmin: int=16, Nmax: int=2048, Nlevels: int=16, 
-                 L: int=4,  d: int=3, F: int=2, device=torch.device('cpu')):
+    def __init__(self, config:dict, device=torch.device('cpu')):
         super().__init__()
-        self.scene_scale = scene_scale                                                              # Downsizing factor to bring scene within [0, 1]^3
-        self.T = T                                                                                  # Hash table size
-        self.Nmin = Nmin                                                                            # Minimum grid resolution
-        self.Nmax = Nmax                                                                            # Maximum grid resolution
-        self.Nlevels = Nlevels                                                                      # Number of levels
-        self.L = L                                                                                  # Number of frequencies for encoding
-        self.d = d                                                                                  # grid dimension
-        self.F = F                                                                                  # Number of feature channels
+        self.scene_scale = config["scene_scale"]                                                    # Downsizing factor to bring scene within [0, 1]^3
+        self.T = config["T"]                                                                        # Hash table size
+        self.Nmin = config["Nmin"]                                                                  # Minimum grid resolution
+        self.Nmax = config["Nmax"]                                                                  # Maximum grid resolution
+        self.Nlevels = config["Nlevels"]                                                            # Number of levels
+        self.L = config["L"]                                                                        # Number of frequencies for encoding
+        self.d = config["d"]                                                                        # grid dimension
+        self.F = config["F"]                                                                        # Number of feature channels
+        self.s_res = config["occupancy_grid_res"]                                                   # occupancy grid resolution
         self.device = device
         
         self.levels = np.geomspace(self.Nmin, self.Nmax, self.Nlevels, dtype=int)
@@ -23,7 +22,7 @@ class NGP(nn.Module):
 
         self.lookup_tables = torch.nn.ParameterDict(
             {str(i): nn.Parameter(
-                   (torch.randn((T, F), device=self.device)*2-1)*1e-4
+                   (torch.randn((self.T, self.F), device=self.device)*2-1)*1e-4
                 ) for i in range(self.Nlevels)})                                                    # (NL, T, F)
         
         self.density_MLP = nn.Sequential(

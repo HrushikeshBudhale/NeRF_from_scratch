@@ -70,7 +70,7 @@ def main():
     conf = utils.load_yaml("conf.yaml")
     dataloader = get_dataloader(conf["dataset_type"], conf["dataset_path"])
     
-    model = {'nerf':NGP(scene_scale=conf["scene_scale"], device=device)}
+    model = {'nerf':NGP(config=conf, device=device)}
     optimizer = torch.optim.Adam(
         [{"params": model['nerf'].lookup_tables.parameters(), "lr": conf["lr"], "betas": (0.9, 0.99), "eps": 1e-15, "weight_decay": 0.},
          {"params": model['nerf'].density_MLP.parameters()  , "lr": conf["lr"], "betas": (0.9, 0.99), "eps": 1e-15, "weight_decay": 1e-6},

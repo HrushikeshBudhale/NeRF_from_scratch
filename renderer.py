@@ -5,7 +5,6 @@ class Renderer:
     def __init__(self, conf: dict):
         self.near = conf["near"]
         self.far = conf["far"]
-        self.step_size = (self.far - self.near) / conf["samples_per_ray"]
     
     def calc_weights(self, sigmas: torch.Tensor, z_vals: torch.Tensor) -> torch.Tensor:
         # sigmas: (N_rays, N_samples, 1)
