@@ -16,19 +16,15 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
     val_rays = RaysData(*dataloader.get_data(stype="val"))
     ray_sampler = RaySampler(conf)
 
-    def render_rays(rays_o: torch.Tensor, rays_d: torch.Tensor) -> torch.Tensor:
-        # rays_o: (N_rays, 3), rays_d: (N_rays, 3)
-        points, z_vals = ray_sampler.sample_along_rays(rays_o, rays_d)                  # (N_rays, N_samples, 3), (N_rays, N_samples)
-        rays_dn = rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)              # (N_rays, N_samples, 3)
-        rgb, sigmas = model['nerf'](points, rays_dn)                                    # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
-        return renderer.volume_render(rgb, sigmas, z_vals)                              # (N_rays, 3)
-
     model['nerf'].train()
     pbar = tqdm(total=conf["epochs"])
     pbar.update(resume_epoch)
     for epoch in range(resume_epoch, conf["epochs"]):
         rays_o, rays_d, rays_rgb = train_rays.cast_rays(conf["rays_per_batch"])         # (N_rays, 3), (N_rays, 3), (N_rays, 3)
-        comp_rgb = render_rays(rays_o, rays_d)
+        points, z_vals = ray_sampler.sample_along_rays(rays_o, rays_d)                  # (N_rays, N_samples, 3), (N_rays, N_samples)
+        rays_dn = rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)              # (N_rays, N_samples, 3)
+        rgb, sigmas = model['nerf'](points, rays_dn)                                    # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
+        comp_rgb = renderer.volume_render(rgb, sigmas, z_vals)                          # (N_rays, 3)
         loss = criterion(comp_rgb, rays_rgb)
         
         optimizer.zero_grad()
@@ -45,7 +41,10 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
                 # perform batched inference
                 comp_rgbs = []
                 for (b_rays_o, b_rays_d) in utils.split_batch((rays_o, rays_d), conf["rays_per_batch"]):
-                    comp_rgbs.append(render_rays(b_rays_o, b_rays_d))
+                    points, z_vals = ray_sampler.sample_along_rays(b_rays_o, b_rays_d)              # (N_rays, N_samples, 3), (N_rays, N_samples)
+                    rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)              # (N_rays, N_samples, 3)
+                    rgb, sigmas = model['nerf'](points, rays_dn)                                    # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
+                    comp_rgbs.append(renderer.volume_render(rgb, sigmas, z_vals))
                 comp_rgb = torch.cat(comp_rgbs, dim=0)
                 
                 curr_psnr = utils.psnr(comp_rgb, rays_rgb)
