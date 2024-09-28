@@ -26,7 +26,7 @@ if __name__ == "__main__":
     ray_sampler = RaySampler(conf)
     renderer = Renderer(conf)
 
-    model = {'nerf':NGP(scene_scale=conf["scene_scale"], device=device)}
+    model = {'nerf':NGP(config=conf, device=device)}
     utils.load_checkpoint(model, None, conf["ckpt_path"])
     model['nerf'].eval()
     with torch.no_grad():
@@ -38,9 +38,10 @@ if __name__ == "__main__":
             for (b_rays_o, b_rays_d) in utils.split_batch((rays_o, rays_d), conf["rays_per_batch"]):
                 points, z_vals = ray_sampler.sample_along_rays(b_rays_o, b_rays_d)
                 rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)
-                rgb, sigmas = model["nerf"](points, rays_dn)
-                comp_depths.append(renderer.volume_render_depth(sigmas, z_vals))
-                comp_rgbs.append(renderer.volume_render(rgb, sigmas, z_vals))
+                rgb, sigmas, pts_mask = model["nerf"](points, rays_dn)
+                comp_rgb, comp_depth = renderer.volume_render(rgb, sigmas, z_vals, pts_mask)
+                comp_depths.append(comp_depth)
+                comp_rgbs.append(comp_rgb)
             comp_rgb = torch.cat(comp_rgbs, dim=0)
             comp_depth = torch.cat(comp_depths, dim=0)
 

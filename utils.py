@@ -72,7 +72,7 @@ def save_checkpoint(epoch, scores, models, optimizer, ckpt_path:str) -> None:
 
 def load_checkpoint(models, optimizer, ckpt_path:str):
     if not os.path.exists(ckpt_path):
-        return 0, []
+        return 1, []
     
     checkpoint=torch.load(ckpt_path)
     resume_epoch = checkpoint['epoch']
