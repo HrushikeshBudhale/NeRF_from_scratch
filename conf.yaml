@@ -17,6 +17,7 @@ L: 4                                  # Number of frequencies for encoding
 d: 3                                  # grid dimension
 F: 2                                  # Number of feature channels
 occupancy_grid_res: 128               # For accelerated raymarching
+occ_decay: 0.70                       # occupancy decay rate (0.95 in paper)
 t_thresh: 0.0001                      # 1e-4 # Transmittance threshold
 
 # training parameters

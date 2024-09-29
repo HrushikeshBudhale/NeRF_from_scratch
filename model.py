@@ -14,6 +14,7 @@ class NGP(nn.Module):
         self.d = config["d"]                                                                        # grid dimension
         self.F = config["F"]                                                                        # Number of feature channels
         self.s_res = config["occupancy_grid_res"]                                                   # occupancy grid resolution
+        self.occupancy_decay_rate = config["occ_decay"]                                             # occupancy decay rate
         self.sigma_thresh = 1 - np.exp(-0.01)                                                       # occupancy threshold
         self.M = (self.s_res**self.d)//2                                                            # random sample count after 256 iterations
         self.device = device
@@ -23,9 +24,12 @@ class NGP(nn.Module):
         self._freqs = 2.0 ** torch.arange(self.L, dtype=torch.float32, device=self.device)          # (L)
 
         r = torch.arange(self.s_res)
-        self.indexes = torch.cartesian_prod(*[r]*self.d).reshape(-1, self.d).to(self.device, torch.int64)# (M, d)
-        self.occupancy_grid = torch.ones([self.s_res]*self.d, dtype=torch.float32, device=self.device)   # (s_res)*d
-        self.occupancy_mask = torch.ones([self.s_res]*self.d, dtype=torch.bool   , device=self.device)   # (s_res)*d
+        self.indexes = torch.cartesian_prod(*[r]*self.d).reshape(-1, self.d)                        # (M, d)
+        self.indexes = self.indexes.to(self.device, torch.int64)
+        self.register_buffer('occupancy_grid',
+            torch.ones([self.s_res]*self.d, dtype=torch.float32, device=self.device))               # (s_res)*d
+        self.register_buffer('occupancy_mask',
+            torch.ones([self.s_res]*self.d, dtype=torch.bool   , device=self.device))               # (s_res)*d
 
         self.lookup_tables = torch.nn.ParameterDict(
             {str(i): nn.Parameter(
@@ -38,7 +42,7 @@ class NGP(nn.Module):
         ).to(self.device)
 
         self.color_MLP = nn.Sequential(
-            nn.Linear(16+self.d+(self.d*self.L*2), 64), nn.ReLU(),                                  # 16 from density_MLP + rest from encoding
+            nn.Linear(16+3+(3*self.L*2), 64), nn.ReLU(),                                            # 16 from density_MLP + rest from encoding
             nn.Linear(64, 64), nn.ReLU(),
             nn.Linear(64, 3), nn.Sigmoid()
         ).to(self.device)
@@ -55,7 +59,7 @@ class NGP(nn.Module):
     
     @torch.no_grad()
     def update_occupancy(self, random_sampling:bool) -> None:
-        self.occupancy_grid *= 0.7 # decay # 0.95 in paper, 0.7 gave best results
+        self.occupancy_grid *= self.occupancy_decay_rate
         indexes = self.indexes.clone()                                                              # (M, d)
         if random_sampling: # after first 256 iterations, use random samples
             M = indexes.shape[0] // 2
@@ -72,10 +76,10 @@ class NGP(nn.Module):
         self.occupancy_mask = self.occupancy_grid > self.sigma_thresh
 
     def positional_encoding(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (Npts, d)
-        x_input = x.unsqueeze(-1) * (2 * torch.pi * self._freqs)                                    # (Npts, d, L)
-        encoding = torch.cat([torch.sin(x_input), torch.cos(x_input)], dim=-1)                      # (Npts, d, L*2)
-        encoding = torch.cat([x, encoding.reshape(*x.shape[:-1], -1)], dim=-1)                      # (Npts, d+d*L*2)
+        # x: (Npts, 3)
+        x_input = x.unsqueeze(-1) * (2 * torch.pi * self._freqs)                                    # (Npts, 3, L)
+        encoding = torch.cat([torch.sin(x_input), torch.cos(x_input)], dim=-1)                      # (Npts, 3, L*2)
+        encoding = torch.cat([x, encoding.reshape(*x.shape[:-1], -1)], dim=-1)                      # (Npts, 3+3*L*2)
         return encoding
 
     def spatial_hashing(self, x: torch.Tensor) -> torch.Tensor:
@@ -150,10 +154,10 @@ class NGP(nn.Module):
         return features
 
     def forward(self, x: torch.Tensor, r_dir: torch.Tensor) -> torch.Tensor:
-        # x    : (N, N_samples, d) point positions
+        # x    : (N, N_samples, 3) point positions
         # r_dir: (N, N_samples, 3) ray directions
         N, N_samples = x.shape[0], r_dir.shape[1]
-        x, r_dir = x.reshape(-1, self.d), r_dir.reshape(-1, 3)                                      # (N*N_samples, d), (N*N_samples, 3)
+        x, r_dir = x[:,:,:self.d].reshape(-1, self.d), r_dir.reshape(-1, 3)                         # (N*N_samples, d), (N*N_samples, 3)
         color, sigma = torch.zeros_like(r_dir), torch.zeros_like(r_dir[:,[0]])                      # (N*N_samples, 3), (N*N_samples, 1)
         pts_mask = torch.zeros_like(r_dir[:,[0]])                                                   # (N*N_samples, 1)
         x = (x * self.scene_scale) + 0.5    # bring scene within [0, 1]^d
@@ -161,7 +165,7 @@ class NGP(nn.Module):
 
         features = self.get_features(x[vi])                                                         # (Npts, F*Nlevels)
         log_sigma = self.density_MLP(features)                                                      # (Npts, 16)
-        encoded_dir = self.positional_encoding(r_dir[vi])                                           # (Npts, d+d*L*2)
+        encoded_dir = self.positional_encoding(r_dir[vi])                                           # (Npts, 3+3*L*2)
         color[vi] = self.color_MLP(torch.cat([log_sigma, encoded_dir], dim=-1))                     # (Npts, 3)
         sigma[vi] = torch.exp(log_sigma[:, [0]])                                                    # (Npts, 1)
         pts_mask[vi] = 1                                                           # (Npts, 1)

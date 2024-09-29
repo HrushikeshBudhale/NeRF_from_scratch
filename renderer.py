@@ -13,7 +13,7 @@ class Renderer:
         N_rays = sigmas.shape[0]
         
         dists = (z_vals[:,1:] - z_vals[:,:-1]).unsqueeze(-1)                                              # (N_rays, N_samples-1, 1)
-        dists = torch.cat([dists, 1e10 * torch.ones_like(dists[:, :1, :])], dim=1)                        # (N_rays, N_samples, 1)
+        dists = torch.cat([dists, 1e10 * torch.ones_like(sigmas[:, :1, :])], dim=1)                       # (N_rays, N_samples, 1)
         alpha = 1 - torch.exp(-sigmas * dists)                                                            # (N_rays, N_samples, 1)
         
         # Transmittance: Cumulative product expresses the probability of ray transmitting through each sample
