@@ -131,6 +131,23 @@ class BlenderDataloader(BaseDataloader):
             K = utils.intrinsic_matrix(self.focal, self.focal, self.W / 2, self.H / 2)
             self.Ks[s] = K.unsqueeze(0).repeat(self.N[s], 1, 1)
 
+class ImageReconDataloader(BaseDataloader):
+    def __init__(self, image_path: str, scale:float=1):
+        super().__init__()
+
+        image = imageio.imread(image_path)
+        H, W = image.shape[:2]
+        focal = W / 2
+        pose = np.eye(4)
+        pose[2,3] = -1 # set camera at focal length distance
+        for s in ['train', 'val', 'test']:
+            self.images[s] = np.array([image[...,:3]]).astype(np.float32) / 255.0
+            self.c2w[s] = np.array([pose]).astype(np.float32)
+            self.N[s] = 1
+            self.H, self.W = H, W
+            self.focal = focal
+            K = utils.intrinsic_matrix(self.focal, self.focal, self.W / 2, self.H / 2)
+            self.Ks[s] = K.unsqueeze(0).repeat(self.N[s], 1, 1)
 
 class RaysData:
     def __init__(self, images: torch.Tensor, poses: torch.Tensor, Ks: torch.Tensor):
