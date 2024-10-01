@@ -184,7 +184,8 @@ def get_dataloader(type: str, data_path: str) -> BaseDataloader:
     loaders = {
         "tiny_nerf": TinyNerfDataloader,
         "custom": CustomDataloader,
-        "blender": BlenderDataloader
+        "blender": BlenderDataloader,
+        "ImageRecon": ImageReconDataloader,
     }
     if type not in loaders:
         raise ValueError(f"Invalid dataloader type: {type}")
@@ -195,7 +196,8 @@ if __name__ == "__main__":
     split_type = "train"
     # dataloader = get_dataloader("custom", "data/lego_100x100.npz")
     # dataloader = get_dataloader("tiny_nerf", "data/lego_200x200.npz")
-    dataloader = get_dataloader("blender", "data/lego")
+    # dataloader = get_dataloader("blender", "data/lego")
+    dataloader = get_dataloader("ImageRecon", "/root/NeRF_from_scratch/data/lego/train/r_2.png")
     print(f"number of {split_type} images: {dataloader.N[split_type]}")
     for i in range(dataloader.N[split_type])[:3]:
         dataloader.show_image(index=i, stype=split_type)
