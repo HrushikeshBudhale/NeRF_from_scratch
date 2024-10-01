@@ -36,7 +36,7 @@ class BaseDataloader:
         self.c2w["test"] = poses
         self.N["test"] = len(poses)
         if Ks is None:
-            K = utils.intrinsic_matrix(self.focal, self.focal, self.W / 2, self.H / 2)
+            K = utils.intrinsic_matrix(self.focal*6, self.focal*6, self.W / 2, self.H / 2)
             Ks = K.unsqueeze(0).repeat(self.N["test"], 1, 1)                                 # (N_test, 3, 3)
         self.Ks["test"] = Ks
         self.images["test"] = np.zeros((self.N["test"], self.H, self.W, 3))                 # (N_test, H, W, 3)

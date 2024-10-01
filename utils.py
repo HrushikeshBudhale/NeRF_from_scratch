@@ -126,13 +126,32 @@ def psnr(img1: torch.Tensor, img2: torch.Tensor) -> float:
     return (20 * torch.log10(PIXEL_MAX / torch.sqrt(mse))).item()
 
 
+# def pixel_to_ray(uv, poses, Ks) -> tuple[torch.Tensor, torch.Tensor]:
+#     # uv: (H*W, 2)
+#     # poses: (N, 4, 4)
+#     # Ks: (N, 3, 3)
+#     uv = uv.unsqueeze(0).repeat(len(Ks), 1, 1)                              # (N, H*W, 2)
+#     xc = pixel_to_camera(uv, Ks)                                            # (N, H*W, 3)
+#     xw = camera_to_world(xc, poses)                                         # (N, H*W, 3)
+
+#     # ray origins
+#     r_o = poses[:, :3, -1].unsqueeze(1)                                     # (N, 1, 3)
+#     r_o = r_o.repeat(1, uv.shape[1], 1)                                     # (N, H*W, 3)
+
+#     # ray directions
+#     r_d = xw - r_o                                                          # (N, H*W, 3)
+#     r_d = r_d / torch.norm(r_d, dim=-1, keepdim=True)                       # (N, H*W, 3)
+#     return r_o, r_d                                                         # (N, H*W, 3), (N, H*W, 3)
+
+
 def pixel_to_ray(uv, poses, Ks) -> tuple[torch.Tensor, torch.Tensor]:
     # uv: (H*W, 2)
     # poses: (N, 4, 4)
     # Ks: (N, 3, 3)
+    eye = torch.eye(4, device=uv.device).unsqueeze(0).repeat(len(Ks), 1, 1) # (N, 4,4)
     uv = uv.unsqueeze(0).repeat(len(Ks), 1, 1)                              # (N, H*W, 2)
     xc = pixel_to_camera(uv, Ks)                                            # (N, H*W, 3)
-    xw = camera_to_world(xc, poses)                                         # (N, H*W, 3)
+    xw = camera_to_world(xc, eye)                                           # (N, H*W, 3)
 
     # ray origins
     r_o = poses[:, :3, -1].unsqueeze(1)                                     # (N, 1, 3)
@@ -140,9 +159,31 @@ def pixel_to_ray(uv, poses, Ks) -> tuple[torch.Tensor, torch.Tensor]:
 
     # ray directions
     r_d = xw - r_o                                                          # (N, H*W, 3)
-    r_d = r_d / torch.norm(r_d, dim=-1, keepdim=True)                       # (N, H*W, 3)
     return r_o, r_d                                                         # (N, H*W, 3), (N, H*W, 3)
 
+# def pixel_to_ray(uv, poses, Ks) -> tuple[torch.Tensor, torch.Tensor]:
+#     # uv: (H*W, 2)
+#     # poses: (N, 4, 4)
+#     # Ks: (N, 3, 3)
+#     uv = uv.unsqueeze(0).repeat(len(Ks), 1, 1)                              # (N, H*W, 2)
+#     xc = pixel_to_camera(uv, Ks)                                            # (N, H*W, 3)
+#     xw = camera_to_world(xc, poses)                                         # (N, H*W, 3)
+
+#     # ray origins
+#     r_o = poses[:, :3, -1].unsqueeze(1)                                     # (N, 1, 3)
+#     r_o = r_o.repeat(1, uv.shape[1], 1)                                     # (N, H*W, 3)
+
+#     xw = intersect_with_xy_plane(r_o, xw)                                         # (N, H*W, 3)
+#     # ray directions
+#     r_d = xw - r_o                                                          # (N, H*W, 3)
+#     return r_o, r_d                                                         # (N, H*W, 3), (N, H*W, 3)
+
+
+def intersect_with_xy_plane(r_o: torch.Tensor, xw: torch.Tensor) -> torch.Tensor:
+    # r_o: (N, H*W, 3)
+    # xw: (N, H*W, 3)
+    t = -r_o[..., [2]] / xw[..., [2]]
+    return r_o + t*xw
 
 def pixel_to_camera(uv, Ks) -> torch.Tensor:
     # Computes camera coordinates from pixel coordinates
