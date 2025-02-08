@@ -138,7 +138,7 @@ class RaysData:
         self.N_images, self.H, self.W = images.shape[:3]
 
         # create uv grid
-        vs, us = torch.meshgrid(torch.arange(self.H), torch.arange(self.W))
+        vs, us = torch.meshgrid(torch.arange(self.H), torch.arange(self.W), indexing='ij')
         uv = torch.stack([us, vs], dim=-1).to(images.device).float()
         uv = uv + 0.5 # add 0.5 offset to each pixel
         self.uv_flattened = uv.reshape(-1, 2)                               # (H*W, 2)
@@ -167,7 +167,7 @@ def get_dataloader(type: str, data_path: str) -> BaseDataloader:
     loaders = {
         "tiny_nerf": TinyNerfDataloader,
         "custom": CustomDataloader,
-        "blender": BlenderDataloader
+        "blender": BlenderDataloader,
     }
     if type not in loaders:
         raise ValueError(f"Invalid dataloader type: {type}")
@@ -179,6 +179,7 @@ if __name__ == "__main__":
     # dataloader = get_dataloader("custom", "data/lego_100x100.npz")
     # dataloader = get_dataloader("tiny_nerf", "data/lego_200x200.npz")
     dataloader = get_dataloader("blender", "data/lego")
+    
     print(f"number of {split_type} images: {dataloader.N[split_type]}")
     for i in range(dataloader.N[split_type])[:3]:
         dataloader.show_image(index=i, stype=split_type)
