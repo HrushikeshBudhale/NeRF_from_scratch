@@ -33,7 +33,7 @@ def split_batch(tensors: list[torch.Tensor], batch_size: int) -> list[torch.Tens
 
 
 def create_gif(image_folder:str, gif_name:str, duration:float=5.0):
-    frames = [imageio.imread(image_folder + image_name) for image_name in os.listdir(image_folder)]
+    frames = [imageio.imread(image_folder + image_name) for image_name in sorted(os.listdir(image_folder))]
     imageio.mimsave(gif_name, frames, 'GIF', duration=duration, loop=2)
 
 
@@ -72,7 +72,7 @@ def save_checkpoint(epoch, scores, models, optimizer, ckpt_path:str) -> None:
 
 def load_checkpoint(models, optimizer, ckpt_path:str):
     if not os.path.exists(ckpt_path):
-        return 0, []
+        return 1, []
     
     checkpoint=torch.load(ckpt_path)
     resume_epoch = checkpoint['epoch']
