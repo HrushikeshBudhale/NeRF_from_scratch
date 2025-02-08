@@ -8,10 +8,11 @@ near: 2.0
 far: 6.0
 samples_per_ray: 64
 perturb_samples: True
+t_thresh: 0.0
 
 # training parameters
 lr: 0.001
 lr_decay_interval: 2000
 epochs: 6000
-val_interval: 500
+val_interval: 200
 save_interval: 500

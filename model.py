@@ -4,18 +4,18 @@ import torch.nn as nn
 
 
 class Nerf(nn.Module):
-    """
-                        sigma
-                        ^
-                        |
-    x -> block1 -> block2 -> block3 -> rgb
-                   ^         ^
-                   |         |
-                   x         d
+    """ 
+                            ____________-> sigma
+                           /
+    x -*-> block1 -> block2 -> block3 ---> rgb
+       |             ^         ^
+        \___________/          |
+    d ________________________/
 
     """
-    def __init__(self):
+    def __init__(self, config:dict, device=torch.device('cpu')):
         super(Nerf, self).__init__()
+        self.device = device
 
         # Linear layers for xyz
         self.fc1_block1 = nn.Linear(2*3*10+3, 256)
@@ -40,6 +40,7 @@ class Nerf(nn.Module):
         # Activation function
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
+        self.to(self.device)
 
     def positional_encoding(self, x: torch.Tensor, L: int):
         # x: (N_rays, N_samples, 3)
@@ -78,6 +79,8 @@ class Nerf(nn.Module):
         x = self.relu(self.fc2_rgb(x))
         rgb = self.sigmoid(self.fc3_rgb(x))
 
-        return rgb, density                                                            # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
-    
-
+        pts_mask = torch.ones((x.shape[0], x.shape[1]),                                 # (N_rays, N_samples)
+                              dtype=torch.bool, 
+                              device=x.device)
+        
+        return rgb, density, pts_mask                                                   # (N_rays, N_samples, 3), (N_rays, N_samples, 1), (N_rays, N_samples)
