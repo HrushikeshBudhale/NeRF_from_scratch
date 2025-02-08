@@ -7,6 +7,7 @@ rays_per_batch: 2000
 near: 2.0
 far: 6.0
 samples_per_ray: 64
+fine_samples_per_ray: 128
 perturb_samples: True
 t_thresh: 0.0
 
