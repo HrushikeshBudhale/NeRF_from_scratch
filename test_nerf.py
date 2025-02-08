@@ -26,9 +26,13 @@ if __name__ == "__main__":
     ray_sampler = RaySampler(conf)
     renderer = Renderer(conf)
 
-    model = {'nerf':Nerf(config=conf, device=device)}
+    model = {
+        'coarse':Nerf(config=conf, device=device),
+        'fine':Nerf(config=conf, device=device),
+    }
     utils.load_checkpoint(model, None, conf["ckpt_path"])
-    model['nerf'].eval()
+    model['coarse'].eval()
+    model['fine'].eval()
     with torch.no_grad():
         for i in tqdm(range(test_rays.N_images)):
             rays_o, rays_d, rays_rgb = test_rays.cast_image_rays(image_index=i)
@@ -38,8 +42,12 @@ if __name__ == "__main__":
             for (b_rays_o, b_rays_d) in utils.split_batch((rays_o, rays_d), conf["rays_per_batch"]):
                 points, z_vals = ray_sampler.sample_along_rays(b_rays_o, b_rays_d)
                 rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)
-                rgb, sigmas, pts_mask = model["nerf"](points, rays_dn)
-                comp_rgb, comp_depth = renderer.volume_render(rgb, sigmas, z_vals, pts_mask)
+                _, sigmas, _ = model["coarse"](points, rays_dn)
+                weights = renderer.calc_weights(sigmas, z_vals)
+                points_fine, z_vals_fine = ray_sampler.hierarchical_sample_along_rays(b_rays_o, b_rays_d, z_vals, weights)
+                rays_d_fine = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples_fine, 1)
+                rgb_fine, sigmas_fine, pts_mask = model["fine"](points_fine, rays_d_fine)
+                comp_rgb, comp_depth = renderer.volume_render(rgb_fine, sigmas_fine, z_vals_fine, pts_mask)
                 comp_depths.append(comp_depth)
                 comp_rgbs.append(comp_rgb)
             comp_rgb = torch.cat(comp_rgbs, dim=0)

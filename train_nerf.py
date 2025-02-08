@@ -16,16 +16,24 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
     val_rays = RaysData(*dataloader.get_data(stype="val"))
     ray_sampler = RaySampler(conf)
 
-    model['nerf'].train()
+    model['coarse'].train()
+    model['fine'].train()
     pbar = tqdm(total=conf["epochs"])
     pbar.update(resume_epoch)
     for epoch in range(resume_epoch, conf["epochs"]):
         rays_o, rays_d, rays_rgb = train_rays.cast_rays(conf["rays_per_batch"])                     # (N_rays, 3), (N_rays, 3), (N_rays, 3)
         points, z_vals = ray_sampler.sample_along_rays(rays_o, rays_d)                              # (N_rays, N_samples, 3), (N_rays, N_samples)
         rays_dn = rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)                          # (N_rays, N_samples, 3)
-        rgb, sigmas, pts_mask = model['nerf'](points, rays_dn)                                      # (N_rays, N_samples, 3), (N_rays, N_samples, 1), (N_rays, N_samples)
+        rgb, sigmas, pts_mask = model["coarse"](points, rays_dn)                                    # (N_rays, N_samples, 3), (N_rays, N_samples, 1), (N_rays, N_samples)
         comp_rgb, _ = renderer.volume_render(rgb, sigmas, z_vals, pts_mask)                         # (N_rays, 3)
-        loss = criterion(comp_rgb, rays_rgb)
+        
+        weights = renderer.calc_weights(sigmas, z_vals)                                                         # (N_rays, N_samples, 1)
+        points_fine, z_vals_fine = ray_sampler.hierarchical_sample_along_rays(rays_o, rays_d, z_vals, weights)  # (N_rays, N_samples_fine, 3)
+        rays_d_fine = rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples_fine, 1)                             # (N_rays, N_samples_fine, 3)
+        rgb_fine, sigmas_fine, pts_mask_fine = model["fine"](points_fine, rays_d_fine)                          # (N_rays, N_samples_fine, 3), (N_rays, N_samples_fine, 1), (N_rays, N_samples_fine)
+        comp_rgb_fine, _ = renderer.volume_render(rgb_fine, sigmas_fine, z_vals_fine, pts_mask_fine)            # (N_rays, 3)
+        
+        loss = criterion(comp_rgb, rays_rgb) + criterion(comp_rgb_fine, rays_rgb)
         
         optimizer.zero_grad()
         loss.backward()
@@ -34,7 +42,8 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
         pbar.update(1)
 
         if epoch % conf["val_interval"] == 0 or epoch == conf["epochs"] - 1:
-            model['nerf'].eval()
+            model['coarse'].eval()
+            model['fine'].eval()
             with torch.no_grad():
                 rays_o, rays_d, rays_rgb = val_rays.cast_image_rays(image_index=9)
                 
@@ -42,9 +51,12 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
                 comp_rgbs = []
                 for (b_rays_o, b_rays_d) in utils.split_batch((rays_o, rays_d), conf["rays_per_batch"]):
                     points, z_vals = ray_sampler.sample_along_rays(b_rays_o, b_rays_d)              # (N_rays, N_samples, 3), (N_rays, N_samples)
-                    rays_dn = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples, 1)            # (N_rays, N_samples, 3)
-                    rgb, sigmas, pts_mask = model['nerf'](points, rays_dn)                          # (N_rays, N_samples, 3), (N_rays, N_samples, 1)
-                    comp_rgbs.append(renderer.volume_render(rgb, sigmas, z_vals, pts_mask)[0])
+                    _, sigmas, _ = model["coarse"](points, rays_dn)
+                    weights = renderer.calc_weights(sigmas, z_vals)
+                    points_fine, z_vals_fine = ray_sampler.hierarchical_sample_along_rays(b_rays_o, b_rays_d, z_vals, weights)
+                    rays_d_fine = b_rays_d.unsqueeze(-2).repeat(1, ray_sampler.N_samples_fine, 1)
+                    rgb_fine, sigmas_fine, pts_mask = model["fine"](points_fine, rays_d_fine)
+                    comp_rgbs.append(renderer.volume_render(rgb_fine, sigmas_fine, z_vals_fine, pts_mask)[0])
                 comp_rgb = torch.cat(comp_rgbs, dim=0)
                 
                 curr_psnr = utils.psnr(comp_rgb, rays_rgb)
@@ -53,9 +65,10 @@ def train_nerf(model: dict, dataloader: BaseDataloader, optimizer, criterion, co
                 # save image
                 image = comp_rgb.reshape(val_rays.H, val_rays.W, 3).cpu().numpy()
                 # save loss plot
-                plt.imsave(f"val_output/{epoch:05}.png", image)
+                plt.imsave(f"val_output/{epoch:04}.png", image)
                 utils.save_psnr_plot(psnr_scores)
-            model['nerf'].train()
+            model['coarse'].train()
+            model['fine'].train()
 
         if epoch % conf['save_interval'] == 0  or epoch == conf["epochs"] - 1:
             utils.save_checkpoint(epoch, psnr_scores, model, optimizer, conf["ckpt_path"])
@@ -69,8 +82,11 @@ def main():
     conf = utils.load_yaml("conf.yaml")
     dataloader = get_dataloader(conf["dataset_type"], conf["dataset_path"])
     
-    model = {'nerf':Nerf(config=conf, device=device)}
-    optimizer = torch.optim.Adam(model["nerf"].parameters(), lr=conf['lr'])
+    model = {
+        'coarse':Nerf(config=conf, device=device),
+        'fine':Nerf(config=conf, device=device),
+    }
+    optimizer = torch.optim.Adam(list(model["coarse"].parameters()) + list(model["fine"].parameters()), lr=conf['lr'])
     criterion = torch.nn.MSELoss()
     train_nerf(model, dataloader, optimizer, criterion, conf)
 
